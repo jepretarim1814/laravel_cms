@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 use App\Http\Requests;
 use Illuminate\Support\Facades\Hash;
+use App\Http\Requests\UsersEditRequest;
 
 class AdminUsersController extends Controller
 {
@@ -20,7 +21,6 @@ class AdminUsersController extends Controller
      */
     public function index()
     {
-        //
         $users = User::all();
         return view('admin.users.index', compact('users'));
     }
@@ -32,21 +32,24 @@ class AdminUsersController extends Controller
      */
     public function create()
     {
-        //
         $roles = Role::lists('name', 'id')->all();
-
         return view('admin.users.create', compact('roles'));
     }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @param UsersRequest $request
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
      */
     public function store(UsersRequest $request)
     {
-        $post = $request->all();
+        if (empty(trim($request->password))) {
+            $post = $request->except('password');
+        } else {
+            $post = $request->all();
+            $post['password'] = Hash::make($post['password']);
+        }
 
         if ($file = $request->file('photo_id')) {
             $name = time() . $file->getClientOriginalName();
@@ -54,8 +57,6 @@ class AdminUsersController extends Controller
             $photo = Photo::create(['file' => $name]);
             $post['photo_id'] = $photo->id;
         }
-        $post['password'] = bcrypt($post['password']);
-        Hash::make($post['password']);
         User::create($post);
         return redirect('/admin/users');
     }
@@ -79,20 +80,35 @@ class AdminUsersController extends Controller
      */
     public function edit($id)
     {
-        //
-        return view('admin.users.edit');
+        $user = User::findOrFail($id);
+        $roles = Role::lists('name', 'id')->all();
+        return view('admin.users.edit', compact('user', 'roles'));
     }
 
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * @param UsersRequest $request
+     * @param $id
+     * @return array
      */
-    public function update(Request $request, $id)
+    public function update(UsersEditRequest $request, $id)
     {
-        //
+        $user = User::findOrFail($id);
+        if (empty(trim($request->password))) {
+            $post = $request->except('password');
+        } else {
+            $post = $request->all();
+            $post['password'] = Hash::make($post['password']);
+        }
+        if ($file = $request->file('photo_id')) {
+            $name = time() . $file->getClientOriginalName();
+            $file->move('images', $name);
+            $photo = Photo::create(['file' => $name]);
+            $post['photo_id'] = $photo->id;
+        }
+        $user->update($post);
+        return redirect('/admin/users');
     }
 
     /**
